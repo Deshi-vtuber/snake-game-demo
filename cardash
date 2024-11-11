@@ -1,0 +1,121 @@
+import pygame
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Screen settings
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption('Mario Kart Style Game')
+
+# Colors
+ASH = (178, 190, 181)  # Soft ash color for background
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+
+# Car settings
+CAR_WIDTH = 50
+CAR_HEIGHT = 90
+car_x = SCREEN_WIDTH // 4
+car_y = SCREEN_HEIGHT - CAR_HEIGHT - 50
+car_velocity = 0
+car_speed = 5  # Set initial speed for the car
+
+# Track settings
+track_x = SCREEN_WIDTH // 4
+track_width = SCREEN_WIDTH // 2
+track_border = 5
+
+# Obstacle settings
+obstacle_width = 50
+obstacle_height = 50
+obstacle_speed = 5
+obstacles = []
+
+# Scoring
+score = 0
+font = pygame.font.SysFont(None, 40)
+
+# Functions to display score and end game message
+def display_score(score):
+    score_text = font.render("Score: " + str(score), True, BLACK)
+    screen.blit(score_text, (10, 10))
+
+def display_game_over():
+    over_text = font.render("Game Over!", True, BLACK)
+    screen.blit(over_text, (SCREEN_WIDTH // 3, SCREEN_HEIGHT // 3))
+
+# Function to create obstacles
+def create_obstacle():
+    obstacle_x = random.randint(track_x, track_x + track_width - obstacle_width)
+    obstacle_y = -obstacle_height
+    return pygame.Rect(obstacle_x, obstacle_y, obstacle_width, obstacle_height)
+
+# Main game loop
+def game_loop():
+    global car_x, car_y, score, obstacles
+    clock = pygame.time.Clock()
+    running = True
+    game_over = False
+
+    # Initial obstacles
+    obstacles.append(create_obstacle())
+
+    while running:
+        screen.fill(ASH)  # Set background to ash color
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN and not game_over:
+                if event.key == pygame.K_LEFT and car_x > track_x:
+                    car_x -= car_speed
+                elif event.key == pygame.K_RIGHT and car_x < track_x + track_width - CAR_WIDTH:
+                    car_x += car_speed
+
+        # Draw track boundaries
+        pygame.draw.rect(screen, WHITE, (track_x - track_border, 0, track_border, SCREEN_HEIGHT))
+        pygame.draw.rect(screen, WHITE, (track_x + track_width, 0, track_border, SCREEN_HEIGHT))
+
+        # Car rectangle
+        car_rect = pygame.Rect(car_x, car_y, CAR_WIDTH, CAR_HEIGHT)
+        pygame.draw.rect(screen, BLUE, car_rect)
+
+        # Move obstacles downwards
+        if not game_over:
+            for obstacle in obstacles:
+                obstacle.y += obstacle_speed
+
+            # Check for obstacles going off the screen
+            if obstacles[0].y > SCREEN_HEIGHT:
+                obstacles.pop(0)
+                obstacles.append(create_obstacle())
+                score += 1
+
+        # Draw obstacles
+        for obstacle in obstacles:
+            pygame.draw.rect(screen, RED, obstacle)
+
+        # Check for collision
+        for obstacle in obstacles:
+            if car_rect.colliderect(obstacle):
+                game_over = True
+
+        # Display score
+        display_score(score)
+
+        if game_over:
+            display_game_over()
+
+        pygame.display.update()
+        clock.tick(30)
+
+    pygame.quit()
+
+# Start the game
+game_loop()
