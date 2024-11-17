@@ -5,8 +5,8 @@ import random
 pygame.init()
 
 # Screen and grid settings
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 800
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 CELL_SIZE = 40
 ROWS = SCREEN_HEIGHT // CELL_SIZE
 COLS = SCREEN_WIDTH // CELL_SIZE
@@ -17,11 +17,11 @@ WHITE = (255, 255, 255)
 YELLOW = (255, 255, 0)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
-ASH = (178, 190, 181)  # Soft ash color for the background
+ASH = (178, 190, 181)
 
 # Screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Improved Pac-Man")
+pygame.display.set_caption("Pac-Man with Random Ghost Paths")
 
 # Clock
 clock = pygame.time.Clock()
@@ -29,25 +29,24 @@ FPS = 10
 
 # Maze layout (1 = wall, 0 = path, 2 = pellet)
 MAZE = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 2, 0, 0, 1, 0, 2, 1, 2, 1, 2, 0, 0, 1, 0, 0, 0, 0, 2, 1],
-    [1, 0, 1, 0, 1, 0, 2, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 1, 2, 1],
-    [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 1, 0, 1, 0, 2, 0, 1],
-    [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 0, 1, 0, 1, 0, 1],
-    [1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1 if x == 0 or x == COLS - 1 or y == 0 or y == ROWS - 1 else random.choice([0, 2, 1]) for x in range(COLS)]
+    for y in range(ROWS)
 ]
+
+# Ensure all paths are connected
+for y in range(1, ROWS - 1):
+    for x in range(1, COLS - 1):
+        if MAZE[y][x] == 1 and all(MAZE[ny][nx] == 1 for nx, ny in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]):
+            MAZE[y][x] = 0
 
 # Pac-Man settings
 pacman_x = 1
 pacman_y = 1
 pacman_speed = 1
-direction = None  # None, 'UP', 'DOWN', 'LEFT', 'RIGHT'
+direction = None
 
 # Ghost settings
-ghosts = [{'x': 10, 'y': 5, 'color': RED}]
+ghosts = [{'x': COLS - 2, 'y': ROWS - 2, 'color': RED}]
 ghost_speed = 0.5
 ghost_move_counter = 0
 
@@ -100,7 +99,7 @@ def move_pacman():
         MAZE[pacman_y][pacman_x] = 0  # Remove pellet
 
 def move_ghosts():
-    """Move ghosts intelligently."""
+    """Move ghosts randomly but with a slight tendency to move toward Pac-Man."""
     global ghost_move_counter
     ghost_move_counter += 1
 
@@ -117,10 +116,11 @@ def move_ghosts():
             if MAZE[ghost['y']][ghost['x'] + 1] != 1:  # Right
                 possible_moves.append(('RIGHT', ghost['x'] + 1, ghost['y']))
 
-            # Move randomly or intelligently toward Pac-Man
             if possible_moves:
-                if random.random() < 0.8:  # 80% chance to move toward Pac-Man
+                if random.random() < 0.6:  # 60% chance to move toward Pac-Man
                     possible_moves.sort(key=lambda move: abs(move[1] - pacman_x) + abs(move[2] - pacman_y))
+                else:  # 40% chance for random movement
+                    random.shuffle(possible_moves)
                 ghost['x'], ghost['y'] = possible_moves[0][1], possible_moves[0][2]
 
 def check_collision():
