@@ -1,0 +1,175 @@
+import pygame
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Screen and grid settings
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 800
+CELL_SIZE = 40
+ROWS = SCREEN_HEIGHT // CELL_SIZE
+COLS = SCREEN_WIDTH // CELL_SIZE
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+YELLOW = (255, 255, 0)
+BLUE = (0, 0, 255)
+RED = (255, 0, 0)
+ASH = (178, 190, 181)  # Soft ash color for the background
+
+# Screen
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Improved Pac-Man")
+
+# Clock
+clock = pygame.time.Clock()
+FPS = 10
+
+# Maze layout (1 = wall, 0 = path, 2 = pellet)
+MAZE = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 2, 0, 0, 1, 0, 2, 1, 2, 1, 2, 0, 0, 1, 0, 0, 0, 0, 2, 1],
+    [1, 0, 1, 0, 1, 0, 2, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 1, 2, 1],
+    [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 2, 1, 0, 1, 0, 1, 0, 2, 0, 1],
+    [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 0, 1, 0, 1, 0, 1],
+    [1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+]
+
+# Pac-Man settings
+pacman_x = 1
+pacman_y = 1
+pacman_speed = 1
+direction = None  # None, 'UP', 'DOWN', 'LEFT', 'RIGHT'
+
+# Ghost settings
+ghosts = [{'x': 10, 'y': 5, 'color': RED}]
+ghost_speed = 0.5
+ghost_move_counter = 0
+
+# Score
+score = 0
+font = pygame.font.SysFont(None, 40)
+
+def draw_maze():
+    """Draw the maze with walls and pellets."""
+    for row in range(len(MAZE)):
+        for col in range(len(MAZE[0])):
+            x, y = col * CELL_SIZE, row * CELL_SIZE
+            if MAZE[row][col] == 1:  # Wall
+                pygame.draw.rect(screen, BLUE, (x, y, CELL_SIZE, CELL_SIZE))
+            elif MAZE[row][col] == 2:  # Pellet
+                pygame.draw.circle(screen, WHITE, (x + CELL_SIZE // 2, y + CELL_SIZE // 2), 5)
+
+def draw_pacman():
+    """Draw Pac-Man."""
+    x, y = pacman_x * CELL_SIZE, pacman_y * CELL_SIZE
+    pygame.draw.circle(screen, YELLOW, (x + CELL_SIZE // 2, y + CELL_SIZE // 2), CELL_SIZE // 2 - 5)
+
+def draw_ghosts():
+    """Draw the ghosts."""
+    for ghost in ghosts:
+        x, y = ghost['x'] * CELL_SIZE, ghost['y'] * CELL_SIZE
+        pygame.draw.circle(screen, ghost['color'], (x + CELL_SIZE // 2, y + CELL_SIZE // 2), CELL_SIZE // 2 - 5)
+
+def move_pacman():
+    """Move Pac-Man based on the current direction."""
+    global pacman_x, pacman_y, score
+    next_x, next_y = pacman_x, pacman_y
+
+    if direction == 'UP':
+        next_y -= pacman_speed
+    elif direction == 'DOWN':
+        next_y += pacman_speed
+    elif direction == 'LEFT':
+        next_x -= pacman_speed
+    elif direction == 'RIGHT':
+        next_x += pacman_speed
+
+    # Check for walls
+    if MAZE[next_y][next_x] != 1:
+        pacman_x, pacman_y = next_x, next_y
+
+    # Check for pellets
+    if MAZE[pacman_y][pacman_x] == 2:
+        score += 10
+        MAZE[pacman_y][pacman_x] = 0  # Remove pellet
+
+def move_ghosts():
+    """Move ghosts intelligently."""
+    global ghost_move_counter
+    ghost_move_counter += 1
+
+    if ghost_move_counter >= 2:  # Slow down ghost movement
+        ghost_move_counter = 0
+        for ghost in ghosts:
+            possible_moves = []
+            if MAZE[ghost['y'] - 1][ghost['x']] != 1:  # Up
+                possible_moves.append(('UP', ghost['x'], ghost['y'] - 1))
+            if MAZE[ghost['y'] + 1][ghost['x']] != 1:  # Down
+                possible_moves.append(('DOWN', ghost['x'], ghost['y'] + 1))
+            if MAZE[ghost['y']][ghost['x'] - 1] != 1:  # Left
+                possible_moves.append(('LEFT', ghost['x'] - 1, ghost['y']))
+            if MAZE[ghost['y']][ghost['x'] + 1] != 1:  # Right
+                possible_moves.append(('RIGHT', ghost['x'] + 1, ghost['y']))
+
+            # Move randomly or intelligently toward Pac-Man
+            if possible_moves:
+                if random.random() < 0.8:  # 80% chance to move toward Pac-Man
+                    possible_moves.sort(key=lambda move: abs(move[1] - pacman_x) + abs(move[2] - pacman_y))
+                ghost['x'], ghost['y'] = possible_moves[0][1], possible_moves[0][2]
+
+def check_collision():
+    """Check if Pac-Man collides with a ghost."""
+    for ghost in ghosts:
+        if ghost['x'] == pacman_x and ghost['y'] == pacman_y:
+            return True
+    return False
+
+def display_score():
+    """Display the current score."""
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, SCREEN_HEIGHT - 40))
+
+def game_loop():
+    global direction
+    running = True
+
+    while running:
+        screen.fill(ASH)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    direction = 'UP'
+                elif event.key == pygame.K_DOWN:
+                    direction = 'DOWN'
+                elif event.key == pygame.K_LEFT:
+                    direction = 'LEFT'
+                elif event.key == pygame.K_RIGHT:
+                    direction = 'RIGHT'
+
+        move_pacman()
+        move_ghosts()
+
+        if check_collision():
+            running = False
+
+        draw_maze()
+        draw_pacman()
+        draw_ghosts()
+        display_score()
+
+        pygame.display.update()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+# Start the game
+game_loop()
