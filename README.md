@@ -1,2 +1,2 @@
 # snake-game-demo
-Highsea first coding in python. I used Python 4 years back so forgot almost everything so starting from scratch.
+My Highsea first coding project in python. I used Python 4 years ago so forgot almost everything so starting from scratch.
