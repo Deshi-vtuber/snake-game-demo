@@ -1,0 +1,154 @@
+import pygame
+import random
+
+# Initialize pygame
+pygame.init()
+
+# Screen settings
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Gravity Switcher")
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+ASH = (178, 190, 181)
+
+# Clock and FPS
+clock = pygame.time.Clock()
+FPS = 60
+
+# Player settings
+player_size = 30
+player_x = SCREEN_WIDTH // 2
+player_y = SCREEN_HEIGHT // 2
+player_speed = 5
+gravity_x, gravity_y = 0, 1  # Initial gravity direction: down
+
+# Obstacles
+num_obstacles = 5
+obstacles = []
+for _ in range(num_obstacles):
+    obs_x = random.randint(100, SCREEN_WIDTH - 100)
+    obs_y = random.randint(100, SCREEN_HEIGHT - 100)
+    obs_size = random.randint(50, 100)
+    obs_speed = random.choice([-2, -1, 1, 2])
+    obstacles.append({'x': obs_x, 'y': obs_y, 'size': obs_size, 'speed': obs_speed})
+
+# Orbs
+num_orbs = 10
+orbs = []
+for _ in range(num_orbs):
+    orb_x = random.randint(50, SCREEN_WIDTH - 50)
+    orb_y = random.randint(50, SCREEN_HEIGHT - 50)
+    orbs.append({'x': orb_x, 'y': orb_y})
+
+# Score
+score = 0
+font = pygame.font.SysFont(None, 40)
+
+def draw_player():
+    """Draw the player."""
+    pygame.draw.rect(screen, GREEN, (player_x, player_y, player_size, player_size))
+
+def draw_obstacles():
+    """Draw the obstacles."""
+    for obs in obstacles:
+        pygame.draw.rect(screen, RED, (obs['x'], obs['y'], obs['size'], obs['size']))
+
+def draw_orbs():
+    """Draw the orbs."""
+    for orb in orbs:
+        pygame.draw.circle(screen, WHITE, (orb['x'], orb['y']), 10)
+
+def move_obstacles():
+    """Move obstacles randomly."""
+    for obs in obstacles:
+        obs['x'] += obs['speed']
+        if obs['x'] <= 0 or obs['x'] + obs['size'] >= SCREEN_WIDTH:
+            obs['speed'] *= -1  # Reverse direction
+
+def check_collision():
+    """Check if the player collides with any obstacle or leaves the screen."""
+    # Check screen boundaries
+    if player_x < 0 or player_x + player_size > SCREEN_WIDTH or player_y < 0 or player_y + player_size > SCREEN_HEIGHT:
+        return True
+
+    # Check obstacles
+    for obs in obstacles:
+        if (
+            player_x < obs['x'] + obs['size']
+            and player_x + player_size > obs['x']
+            and player_y < obs['y'] + obs['size']
+            and player_y + player_size > obs['y']
+        ):
+            return True
+
+    return False
+
+def check_orb_collection():
+    """Check if the player collects any orb."""
+    global score
+    for orb in orbs[:]:
+        if (
+            player_x < orb['x'] + 10
+            and player_x + player_size > orb['x'] - 10
+            and player_y < orb['y'] + 10
+            and player_y + player_size > orb['y'] - 10
+        ):
+            orbs.remove(orb)
+            score += 10
+
+def display_score():
+    """Display the current score."""
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+
+def game_loop():
+    global player_x, player_y, gravity_x, gravity_y
+    running = True
+
+    while running:
+        screen.fill(ASH)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:  # Gravity up
+                    gravity_x, gravity_y = 0, -1
+                elif event.key == pygame.K_DOWN:  # Gravity down
+                    gravity_x, gravity_y = 0, 1
+                elif event.key == pygame.K_LEFT:  # Gravity left
+                    gravity_x, gravity_y = -1, 0
+                elif event.key == pygame.K_RIGHT:  # Gravity right
+                    gravity_x, gravity_y = 1, 0
+
+        # Move player by gravity
+        player_x += gravity_x * player_speed
+        player_y += gravity_y * player_speed
+
+        # Move obstacles and check collisions
+        move_obstacles()
+        if check_collision():
+            running = False
+
+        # Check orb collection
+        check_orb_collection()
+
+        # Draw everything
+        draw_player()
+        draw_obstacles()
+        draw_orbs()
+        display_score()
+
+        pygame.display.update()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+# Start the game
+game_loop()
