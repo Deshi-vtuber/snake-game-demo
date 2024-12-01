@@ -1,0 +1,214 @@
+import pygame
+import random
+import math
+import time
+
+# Initialize pygame
+pygame.init()
+
+# Screen dimensions
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Time Shifter")
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GRAY = (100, 100, 100)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+DARK_GRAY = (50, 50, 50)
+CYAN = (0, 255, 255)
+
+# Clock and FPS
+clock = pygame.time.Clock()
+FPS = 60
+
+# Fonts
+font_large = pygame.font.SysFont("Arial", 50)
+font_small = pygame.font.SysFont("Arial", 30)
+
+# Time-related mechanics
+time_power = 100  # Time power percentage
+time_mode = None  # None, 'slow', or 'rewind'
+
+# Player properties
+player_size = 40
+player_x = 100
+player_y = SCREEN_HEIGHT // 2
+player_speed = 5
+player_color = BLUE
+player_velocity_y = 0
+gravity = 0.5
+
+# Enemy properties
+enemies = []
+for i in range(5):
+    enemy_x = random.randint(400, SCREEN_WIDTH - 100)
+    enemy_y = random.randint(100, SCREEN_HEIGHT - 100)
+    enemy_speed = random.choice([2, -2])
+    enemies.append({'x': enemy_x, 'y': enemy_y, 'size': 40, 'speed': enemy_speed})
+
+# Collectibles (time energy)
+collectibles = []
+for i in range(8):
+    col_x = random.randint(200, SCREEN_WIDTH - 100)
+    col_y = random.randint(100, SCREEN_HEIGHT - 100)
+    collectibles.append({'x': col_x, 'y': col_y, 'collected': False})
+
+# Obstacles
+obstacles = [
+    pygame.Rect(300, 500, 200, 20),
+    pygame.Rect(600, 400, 150, 20),
+    pygame.Rect(900, 300, 100, 20),
+]
+
+# Level and Game Stats
+level = 1
+score = 0
+time_remaining = 120  # Two minutes to complete the level
+game_running = True
+rewind_memory = []
+
+# Helper functions
+def draw_player():
+    pygame.draw.rect(screen, player_color, (player_x, player_y, player_size, player_size))
+
+def draw_enemies():
+    for enemy in enemies:
+        pygame.draw.rect(screen, RED, (enemy['x'], enemy['y'], enemy['size'], enemy['size']))
+
+def draw_collectibles():
+    for col in collectibles:
+        if not col['collected']:
+            pygame.draw.circle(screen, YELLOW, (col['x'], col['y']), 10)
+
+def draw_obstacles():
+    for obstacle in obstacles:
+        pygame.draw.rect(screen, GRAY, obstacle)
+
+def apply_gravity():
+    global player_y, player_velocity_y
+    player_velocity_y += gravity
+    player_y += player_velocity_y
+
+    # Ensure player stays on screen
+    if player_y + player_size > SCREEN_HEIGHT:
+        player_y = SCREEN_HEIGHT - player_size
+        player_velocity_y = 0
+
+    if player_y < 0:
+        player_y = 0
+        player_velocity_y = 0
+
+def check_collectibles():
+    global score, time_power
+    for col in collectibles:
+        if not col['collected']:
+            distance = math.sqrt((col['x'] - player_x) ** 2 + (col['y'] - player_y) ** 2)
+            if distance < player_size // 2 + 10:
+                col['collected'] = True
+                score += 10
+                time_power = min(100, time_power + 20)  # Increase time power
+
+def handle_enemies():
+    global game_running
+    for enemy in enemies:
+        # Move enemy
+        enemy['x'] += enemy['speed']
+        if enemy['x'] < 0 or enemy['x'] + enemy['size'] > SCREEN_WIDTH:
+            enemy['speed'] *= -1
+
+        # Check collision with player
+        if (player_x < enemy['x'] + enemy['size'] and
+            player_x + player_size > enemy['x'] and
+            player_y < enemy['y'] + enemy['size'] and
+            player_y + player_size > enemy['y']):
+            game_running = False  # Game over
+
+def display_ui():
+    score_text = font_small.render(f"Score: {score}", True, WHITE)
+    time_text = font_small.render(f"Time: {int(time_remaining)}s", True, WHITE)
+    power_text = font_small.render(f"Time Power: {int(time_power)}%", True, CYAN)
+    screen.blit(score_text, (10, 10))
+    screen.blit(time_text, (10, 50))
+    screen.blit(power_text, (10, 90))
+
+def rewind():
+    global rewind_memory, player_x, player_y, time_power
+    if rewind_memory and time_power > 0:
+        player_x, player_y = rewind_memory.pop()
+        time_power -= 1
+
+def slow_time():
+    global FPS, time_power
+    if time_power > 0:
+        FPS = 30
+        time_power -= 0.5
+    else:
+        FPS = 60
+
+# Game loop
+while game_running:
+    screen.fill(DARK_GRAY)
+
+    # Timer
+    time_remaining -= 1 / FPS
+    if time_remaining <= 0:
+        game_running = False  # Time out
+
+    # Event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:  # Rewind
+                time_mode = 'rewind'
+            elif event.key == pygame.K_s:  # Slow time
+                time_mode = 'slow'
+        if event.type == pygame.KEYUP:
+            if event.key in [pygame.K_r, pygame.K_s]:
+                time_mode = None
+                FPS = 60
+
+    # Player movement
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed
+    if keys[pygame.K_RIGHT] and player_x + player_size < SCREEN_WIDTH:
+        player_x += player_speed
+    if keys[pygame.K_UP]:
+        player_velocity_y = -10
+
+    # Apply gravity
+    apply_gravity()
+
+    # Time mechanics
+    if time_mode == 'rewind':
+        rewind()
+    elif time_mode == 'slow':
+        slow_time()
+
+    # Record player's position for rewind
+    rewind_memory.append((player_x, player_y))
+    if len(rewind_memory) > 300:  # Limit memory
+        rewind_memory.pop(0)
+
+    # Game logic
+    check_collectibles()
+    handle_enemies()
+
+    # Draw everything
+    draw_player()
+    draw_enemies()
+    draw_collectibles()
+    draw_obstacles()
+    display_ui()
+
+    pygame.display.update()
+    clock.tick(FPS)
+
+pygame.quit()
