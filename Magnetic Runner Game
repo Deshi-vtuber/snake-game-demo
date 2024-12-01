@@ -1,0 +1,194 @@
+import pygame
+import random
+import math
+
+# Initialize pygame
+pygame.init()
+
+# Screen dimensions
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Magnetic Runner")
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+BLUE = (0, 0, 255)
+RED = (255, 0, 0)
+YELLOW = (255, 255, 0)
+GRAY = (169, 169, 169)
+DARK_BLUE = (0, 0, 139)
+DARK_RED = (139, 0, 0)
+
+# Clock and FPS
+clock = pygame.time.Clock()
+FPS = 60
+
+# Fonts
+font_large = pygame.font.SysFont("Arial", 50)
+font_small = pygame.font.SysFont("Arial", 30)
+
+# Game variables
+player_size = 40
+player_x = 200
+player_y = SCREEN_HEIGHT // 2
+player_speed = 5
+player_color = BLUE
+gravity = 0.5
+y_velocity = 0
+polarity = 1  # 1 for attract, -1 for repel
+
+# Magnet settings
+num_magnets = 8
+magnets = []
+for _ in range(num_magnets):
+    mag_x = random.randint(400, SCREEN_WIDTH - 100)
+    mag_y = random.randint(100, SCREEN_HEIGHT - 100)
+    magnets.append({
+        'x': mag_x, 
+        'y': mag_y, 
+        'radius': random.randint(20, 40), 
+        'strength': random.randint(5, 15), 
+        'polarity': random.choice([1, -1])
+    })
+
+# Collectibles
+num_collectibles = 5
+collectibles = []
+for _ in range(num_collectibles):
+    col_x = random.randint(300, SCREEN_WIDTH - 100)
+    col_y = random.randint(100, SCREEN_HEIGHT - 100)
+    collectibles.append({'x': col_x, 'y': col_y, 'radius': 15, 'collected': False})
+
+# Obstacles
+obstacles = [
+    pygame.Rect(500, SCREEN_HEIGHT - 300, 100, 20),
+    pygame.Rect(700, SCREEN_HEIGHT - 200, 150, 20)
+]
+
+# Game stats
+score = 0
+time_remaining = 60  # 60 seconds to win
+level = 1
+
+# Helper functions
+def draw_player():
+    pygame.draw.rect(screen, player_color, (player_x, player_y, player_size, player_size))
+
+def draw_magnets():
+    for mag in magnets:
+        color = DARK_RED if mag['polarity'] == 1 else DARK_BLUE
+        pygame.draw.circle(screen, color, (mag['x'], mag['y']), mag['radius'])
+
+def draw_collectibles():
+    for col in collectibles:
+        if not col['collected']:
+            pygame.draw.circle(screen, YELLOW, (col['x'], col['y']), col['radius'])
+
+def draw_obstacles():
+    for obstacle in obstacles:
+        pygame.draw.rect(screen, GRAY, obstacle)
+
+def apply_magnetic_force(player_x, player_y, y_velocity):
+    for mag in magnets:
+        distance_x = mag['x'] - (player_x + player_size // 2)
+        distance_y = mag['y'] - (player_y + player_size // 2)
+        distance = math.sqrt(distance_x ** 2 + distance_y ** 2)
+
+        if distance < 200:  # Effective range of magnets
+            force = mag['strength'] * mag['polarity'] * polarity / max(distance, 10)
+            player_x += force * (distance_x / distance)
+            y_velocity += force * (distance_y / distance)
+
+    # Ensure player stays on screen
+    player_x = max(0, min(player_x, SCREEN_WIDTH - player_size))
+    player_y = max(0, min(player_y, SCREEN_HEIGHT - player_size))
+    return player_x, y_velocity
+
+def check_collision_with_collectibles():
+    global score
+    for col in collectibles:
+        if not col['collected']:
+            distance = math.sqrt((col['x'] - player_x) ** 2 + (col['y'] - player_y) ** 2)
+            if distance < player_size // 2 + col['radius']:
+                col['collected'] = True
+                score += 10
+
+def display_ui():
+    score_text = font_small.render(f"Score: {score}", True, WHITE)
+    timer_text = font_small.render(f"Time: {int(time_remaining)}s", True, WHITE)
+    level_text = font_small.render(f"Level: {level}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+    screen.blit(timer_text, (10, 50))
+    screen.blit(level_text, (10, 90))
+
+def check_win_condition():
+    if all(col['collected'] for col in collectibles):
+        return True
+    return False
+
+# Game loop
+running = True
+while running:
+    screen.fill(BLACK)
+
+    # Timer
+    time_remaining -= 1 / FPS
+    if time_remaining <= 0:
+        running = False  # Game over due to time out
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                polarity *= -1
+
+    # Player movement
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed
+    if keys[pygame.K_RIGHT] and player_x + player_size < SCREEN_WIDTH:
+        player_x += player_speed
+    if keys[pygame.K_UP] and player_y > 0:
+        player_y -= player_speed
+    if keys[pygame.K_DOWN] and player_y + player_size < SCREEN_HEIGHT:
+        player_y += player_speed
+
+    # Apply gravity
+    y_velocity += gravity
+
+    # Magnetic force
+    player_x, y_velocity = apply_magnetic_force(player_x, player_y, y_velocity)
+
+    # Check collectibles
+    check_collision_with_collectibles()
+
+    # Check win condition
+    if check_win_condition():
+        level += 1
+        time_remaining += 30  # Add time for the next level
+        magnets.clear()
+        collectibles.clear()
+        # Reset magnets and collectibles
+        for _ in range(num_magnets):
+            mag_x = random.randint(400, SCREEN_WIDTH - 100)
+            mag_y = random.randint(100, SCREEN_HEIGHT - 100)
+            magnets.append({'x': mag_x, 'y': mag_y, 'radius': 30, 'strength': random.randint(5, 15), 'polarity': random.choice([1, -1])})
+        for _ in range(num_collectibles):
+            col_x = random.randint(300, SCREEN_WIDTH - 100)
+            col_y = random.randint(100, SCREEN_HEIGHT - 100)
+            collectibles.append({'x': col_x, 'y': col_y, 'radius': 15, 'collected': False})
+
+    # Draw everything
+    draw_player()
+    draw_magnets()
+    draw_collectibles()
+    draw_obstacles()
+    display_ui()
+
+    pygame.display.update()
+    clock.tick(FPS)
+
+pygame.quit()
