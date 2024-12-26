@@ -1,0 +1,173 @@
+import pygame
+import random
+
+
+pygame.init()
+
+
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Cosmic Dodger")
+
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+SHIP_COLOR = (0, 255, 0)
+ASTEROID_COLOR = (169, 169, 169)
+POWERUP_COLOR = (0, 255, 255)
+
+
+clock = pygame.time.Clock()
+FPS = 60
+
+
+font_large = pygame.font.SysFont("Arial", 50)
+font_small = pygame.font.SysFont("Arial", 30)
+
+
+ship_width = 50
+ship_height = 60
+ship_x = SCREEN_WIDTH // 2
+ship_y = SCREEN_HEIGHT - ship_height - 20
+ship_speed = 10
+
+current_level = 1
+max_levels = 5
+asteroid_speed = 5
+asteroid_size = 40
+num_asteroids = 5
+powerup_size = 30
+powerup_spawn_rate = 0.01  # 1% chance per frame
+score = 0
+goal_score = 50
+
+
+asteroids = []
+powerups = []
+ship_hitbox = pygame.Rect(ship_x, ship_y, ship_width, ship_height)
+
+
+def generate_asteroids(num):
+    asteroids.clear()
+    for _ in range(num):
+        x = random.randint(0, SCREEN_WIDTH - asteroid_size)
+        y = random.randint(-600, -40) 
+        asteroids.append(pygame.Rect(x, y, asteroid_size, asteroid_size))
+
+def generate_powerup():
+    x = random.randint(0, SCREEN_WIDTH - powerup_size)
+    y = random.randint(-600, -40)
+    return pygame.Rect(x, y, powerup_size, powerup_size)
+
+def draw_ship():
+    pygame.draw.rect(screen, SHIP_COLOR, ship_hitbox)
+
+def draw_asteroids():
+    for asteroid in asteroids:
+        pygame.draw.rect(screen, ASTEROID_COLOR, asteroid)
+
+def draw_powerups():
+    for powerup in powerups:
+        pygame.draw.rect(screen, POWERUP_COLOR, powerup)
+
+def move_asteroids():
+    for asteroid in asteroids:
+        asteroid.y += asteroid_speed
+        if asteroid.y > SCREEN_HEIGHT:
+            asteroid.x = random.randint(0, SCREEN_WIDTH - asteroid_size)
+            asteroid.y = random.randint(-600, -40)
+
+def move_powerups():
+    for powerup in powerups:
+        powerup.y += asteroid_speed // 2
+        if powerup.y > SCREEN_HEIGHT:
+            powerups.remove(powerup)
+
+def check_collisions():
+    global game_running, score, powerups
+
+    # Asteroid collision
+    for asteroid in asteroids:
+        if ship_hitbox.colliderect(asteroid):
+            print("Game Over! Your spaceship was destroyed!")
+            game_running = False
+
+    # Power-up collision
+    for powerup in powerups:
+        if ship_hitbox.colliderect(powerup):
+            score += 10
+            powerups.remove(powerup)
+            print(f"Power-up collected! Score: {score}")
+
+def level_up():
+    global current_level, asteroid_speed, num_asteroids, goal_score
+
+    if score >= goal_score and current_level < max_levels:
+        current_level += 1
+        asteroid_speed += 2
+        num_asteroids += 2
+        generate_asteroids(num_asteroids)
+        print(f"Level Up! Current Level: {current_level}")
+    elif score >= goal_score and current_level == max_levels:
+        print("Congratulations! You've beaten the game!")
+        return True
+    return False
+
+def display_ui():
+    level_text = font_small.render(f"Level: {current_level}/{max_levels}", True, WHITE)
+    score_text = font_small.render(f"Score: {score}", True, WHITE)
+    goal_text = font_small.render(f"Goal: {goal_score} points", True, WHITE)
+    screen.blit(level_text, (10, 10))
+    screen.blit(score_text, (10, 50))
+    screen.blit(goal_text, (10, 90))
+
+# Initialize asteroids
+generate_asteroids(num_asteroids)
+
+# Game loop
+game_running = True
+while game_running:
+    screen.fill(BLACK)
+
+    # Event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_running = False
+
+    # Player movement
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and ship_hitbox.x > 0:
+        ship_hitbox.x -= ship_speed
+    if keys[pygame.K_RIGHT] and ship_hitbox.x + ship_width < SCREEN_WIDTH:
+        ship_hitbox.x += ship_speed
+    if keys[pygame.K_UP] and ship_hitbox.y > 0:
+        ship_hitbox.y -= ship_speed
+    if keys[pygame.K_DOWN] and ship_hitbox.y + ship_height < SCREEN_HEIGHT:
+        ship_hitbox.y += ship_speed
+
+    # Spawn power-ups randomly
+    if random.random() < powerup_spawn_rate:
+        powerups.append(generate_powerup())
+
+    
+    move_asteroids()
+    move_powerups()
+
+    # Check collisions
+    check_collisions()
+
+    
+    if level_up():
+        game_running = False
+
+
+    draw_ship()
+    draw_asteroids()
+    draw_powerups()
+    display_ui()
+
+    pygame.display.update()
+    clock.tick(FPS)
+
+pygame.quit()
