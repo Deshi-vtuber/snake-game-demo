@@ -1,0 +1,193 @@
+import pygame
+import random
+
+
+pygame.init()
+
+
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Element Shifter - Levels")
+
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+FIRE_COLOR = (255, 69, 0)
+WATER_COLOR = (0, 191, 255)
+AIR_COLOR = (135, 206, 250)
+PLATFORM_COLOR = (100, 100, 100)
+OBSTACLE_COLOR = (139, 69, 19)
+LEVEL_PORTAL_COLOR = (255, 0, 0)
+
+
+clock = pygame.time.Clock()
+FPS = 60
+
+
+font_large = pygame.font.SysFont("Arial", 50)
+font_small = pygame.font.SysFont("Arial", 30)
+
+
+player_size = 40
+player_x = 100
+player_y = SCREEN_HEIGHT - player_size - 10
+player_speed = 5
+player_jump_speed = 15
+player_velocity_y = 0
+gravity = 0.8
+current_element = "fire"   
+element_colors = {"fire": FIRE_COLOR, "water": WATER_COLOR, "air": AIR_COLOR}
+
+
+current_level = 1
+max_levels = 3
+
+platforms = []
+lava_pools = []
+water_zones = []
+level_portal = None
+
+def generate_level(level):
+    global platforms, lava_pools, water_zones, level_portal
+
+
+    platforms = []
+    lava_pools = []
+    water_zones = []
+
+
+    min_distance = 150  
+    y_positions = list(range(100, SCREEN_HEIGHT - 100, min_distance))
+    random.shuffle(y_positions)
+
+    for i in range(min(len(y_positions), 6)):
+        x = random.randint(100, SCREEN_WIDTH - 300)
+        y = y_positions[i]
+        width = random.randint(150, 250)
+        platforms.append(pygame.Rect(x, y, width, 20))
+
+
+    for i in range(level):
+        x = random.randint(100, SCREEN_WIDTH - 100)
+        lava_pools.append(pygame.Rect(x, SCREEN_HEIGHT - 40, 100, 40))
+
+    for i in range(level):
+        x = random.randint(100, SCREEN_WIDTH - 100)
+        water_zones.append(pygame.Rect(x, SCREEN_HEIGHT - 40, 100, 40))
+
+
+    platform = random.choice(platforms)
+    portal_x = platform.centerx - 20  
+    portal_y = platform.top - 40  
+    level_portal = pygame.Rect(portal_x, portal_y, 40, 40)
+
+generate_level(current_level)
+
+def draw_player():
+    pygame.draw.rect(screen, element_colors[current_element], (player_x, player_y, player_size, player_size))
+
+def draw_platforms():
+    for platform in platforms:
+        pygame.draw.rect(screen, PLATFORM_COLOR, platform)
+
+def draw_obstacles():
+    for lava in lava_pools:
+        pygame.draw.rect(screen, FIRE_COLOR, lava)
+    for water in water_zones:
+        pygame.draw.rect(screen, WATER_COLOR, water)
+
+def draw_level_portal():
+    pygame.draw.rect(screen, LEVEL_PORTAL_COLOR, level_portal)
+
+def apply_gravity():
+    global player_y, player_velocity_y
+    player_velocity_y += gravity
+    player_y += player_velocity_y
+
+    
+    if player_y + player_size > SCREEN_HEIGHT:
+        player_y = SCREEN_HEIGHT - player_size
+        player_velocity_y = 0
+
+def handle_platform_collision():
+    global player_y, player_velocity_y
+    for platform in platforms:
+        if platform.colliderect(player_x, player_y + player_velocity_y, player_size, player_size):
+            if player_velocity_y > 0: 
+                player_y = platform.top - player_size
+                player_velocity_y = 0
+
+def check_level_portal():
+    global current_level, game_running, player_x, player_y
+
+    if level_portal.colliderect(player_x, player_y, player_size, player_size):
+        if current_level < max_levels:
+            current_level += 1
+            print(f"Level Up! Current Level: {current_level}")
+            player_x, player_y = 100, SCREEN_HEIGHT - player_size - 10
+            generate_level(current_level)
+        else:
+            print("Congratulations! You completed all levels!")
+            game_running = False
+
+def handle_obstacles():
+    global game_running
+    for lava in lava_pools:
+        if lava.colliderect(player_x, player_y, player_size, player_size) and current_element != "fire":
+            print("Game Over! Lava consumed you!")
+            game_running = False
+    for water in water_zones:
+        if water.colliderect(player_x, player_y, player_size, player_size) and current_element != "water":
+            print("Game Over! You drowned!")
+            game_running = False
+
+def display_ui():
+    element_text = font_small.render(f"Element: {current_element.capitalize()}", True, WHITE)
+    level_text = font_small.render(f"Level: {current_level}/{max_levels}", True, WHITE)
+    screen.blit(element_text, (10, 10))
+    screen.blit(level_text, (10, 50))
+
+
+game_running = True
+while game_running:
+    screen.fill(BLACK)
+
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_1:
+                current_element = "fire"
+            elif event.key == pygame.K_2:
+                current_element = "water"
+            elif event.key == pygame.K_3:
+                current_element = "air"
+
+
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player_x > 0:
+        player_x -= player_speed
+    if keys[pygame.K_RIGHT] and player_x + player_size < SCREEN_WIDTH:
+        player_x += player_speed
+    if keys[pygame.K_SPACE] and player_velocity_y == 0:
+        player_velocity_y = -player_jump_speed if current_element != "air" else -player_jump_speed * 1.5
+
+   
+    apply_gravity()
+    handle_platform_collision()
+    handle_obstacles()
+    check_level_portal()
+
+    draw_player()
+    draw_platforms()
+    draw_obstacles()
+    draw_level_portal()
+    display_ui()
+
+    pygame.display.update()
+    clock.tick(FPS)
+
+pygame.quit()
+                          
